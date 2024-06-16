@@ -233,26 +233,31 @@ def display_map():
 def main():
     set_page_config()
     display_title()
-    data = load_csv_data(CSV_FILE_PATH)
-    data = adjust_timestamp_to_gmt2(data)
-    data = convert_timestamp_to_datetime(data)
-    data_tables = initialize_data_tables(data)
 
-    # Create a placeholder for the clock
+    # Create a persistent placeholder for the clock outside the loop
     clock_placeholder = st.empty()
 
-    # Use the placeholder to display the clock without blocking the rest of the app
-    with clock_placeholder.container():
-        display_clock()
+    while True:
+        data = load_csv_data(CSV_FILE_PATH)
+        data = adjust_timestamp_to_gmt2(data)
+        data = convert_timestamp_to_datetime(data)
+        data_tables = initialize_data_tables(data)
 
-        plot_wind_chart(data_tables['wind'])
-        col2, col3 = st.columns([1, 1])
-        with col2:
-            plot_wind_direction_chart(data_tables['wind'])
-        with col3:
-            display_map()
+        # Use the persistent placeholder to display the clock without blocking the rest of the app
+        with clock_placeholder.container():
+            display_clock()
 
-        plot_temperature_chart(data_tables['temperature'])
+            # Plot data charts
+            plot_wind_chart(data_tables['wind'])
+            col2, col3 = st.columns([1, 1])
+            with col2:
+                plot_wind_direction_chart(data_tables['wind'])
+            with col3:
+                # display_map()
+                plot_temperature_chart(data_tables['temperature'])
+
+
+        time.sleep(10)
 
 
 if __name__ == "__main__":
