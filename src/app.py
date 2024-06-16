@@ -3,15 +3,16 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objs as go
+from datetime import datetime, timedelta
 
 CSV_FILE_PATH = './src/weather_data.csv'
 
-st.set_page_config(layout="wide")  # Set the page layout to wide
+def set_page_config():
+    st.set_page_config(layout="wide")
 
-st.title('Weather Data Visualization')
+def display_title():
+    st.title('Weather Data Visualization')
 
-
-# Load data from CSV
 @st.cache_data
 def load_csv_data(filepath):
     if os.path.exists(filepath):
@@ -20,51 +21,59 @@ def load_csv_data(filepath):
         st.error(f"CSV file at {filepath} not found.")
         return pd.DataFrame(columns=['timestamp', 'windAvg', 'windDegrees', 'windMin', 'windMax', 'temperature'])
 
+def convert_timestamp_to_datetime(data):
+    data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
+    return data
 
-data = load_csv_data(CSV_FILE_PATH)
+def filter_data_last_hours(data, hours=8):
+    now = datetime.now()
+    time_threshold = now - timedelta(hours=8)
+    return data[data['timestamp'] >= time_threshold]
 
-# Convert timestamp to datetime
-data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
+def initialize_data_tables(filtered_data):
+    return {
+        'temperature': filtered_data[['timestamp', 'temperature']].dropna(),
+        'wind': filtered_data[['timestamp', 'windAvg', 'windMin', 'windMax']].dropna(),
+        'windDegrees': filtered_data[['timestamp', 'windDegrees']].dropna()
+    }
 
-# Initialize data tables for Streamlit charts
-data_tables = {
-    'temperature': data[['timestamp', 'temperature']].dropna(),
-    'wind': data[['timestamp', 'windAvg', 'windMin', 'windMax']].dropna(),
-    'windDegrees': data[['timestamp', 'windDegrees']].dropna()
-}
+def plot_wind_chart(data):
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    max_timestamp = data['timestamp'].max()
+    min_timestamp = max_timestamp - pd.Timedelta(hours=1)
 
-# Create charts
-placeholder = st.empty()
-with placeholder.container():
-    col1, col2 = st.columns([1, 1])  # Adjust column widths
+    fig = px.line(data, x='timestamp', y=['windAvg', 'windMin', 'windMax'], title='Wind Speed Over Time')
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=8, fillcolor="green", opacity=0.2, layer="below", line_width=0)
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=8, y1=11, fillcolor="yellow", opacity=0.1, layer="below", line_width=0)
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=11, y1=14, fillcolor="red", opacity=0.1, layer="below", line_width=0)
+    fig.update_xaxes(range=[min_timestamp, max_timestamp])
+    st.plotly_chart(fig)
 
-    # Wind Line Chart
-    fig_wind = px.line(data_tables['wind'], x='timestamp', y=['windAvg', 'windMin', 'windMax'], title='Wind Speed Over Time')
-    st.plotly_chart(fig_wind, use_container_width=True)
-
-    # Temperature Line Chart
-    fig_temp = px.line(data_tables['temperature'], x='timestamp', y='temperature', title='Temperature Over Time')
-    st.plotly_chart(fig_temp, use_container_width=True)
+def plot_temperature_chart(data):
+    fig = px.line(data, x='timestamp', y='temperature', title='Temperature Over Time')
+    fig.update_yaxes(range=[0, 30])
+    st.plotly_chart(fig)
 
 
+def plot_wind_direction_chart(data):
+    latest_wind_deg = data['windDegrees'].iloc[-1]
+    fig = go.Figure(go.Scatterpolar(r=[1], theta=[latest_wind_deg], mode='markers', marker=dict(size=14, color='red')))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=False)), showlegend=False, title='Wind Direction')
+    st.plotly_chart(fig)
 
-    col3, col4 = st.columns([3, 3])  # Adjust column widths
-    with col3:
-        # Wind Degrees Polar Plot
-        if not data_tables['windDegrees'].empty:
-            latest_wind_deg = data_tables['windDegrees']['windDegrees'].iloc[-1]
-            fig_polar = go.Figure(go.Scatterpolar(
-                r=[1],
-                theta=[latest_wind_deg],
-                mode='markers',
-                marker=dict(size=14, color='red')
-            ))
+def main():
+    set_page_config()
+    display_title()
+    data = load_csv_data(CSV_FILE_PATH)
+    data = convert_timestamp_to_datetime(data)
+    filtered_data = filter_data_last_hours(data)
+    data_tables = initialize_data_tables(filtered_data)
 
-            fig_polar.update_layout(
-                polar=dict(
-                    radialaxis=dict(visible=False),
-                ),
-                showlegend=False,
-                title='Wind Direction'
-            )
-            st.plotly_chart(fig_polar, use_container_width=True)
+    placeholder = st.empty()
+    with placeholder.container():
+        plot_wind_chart(data_tables['wind'])
+        plot_temperature_chart(data_tables['temperature'])
+        plot_wind_direction_chart(data_tables['windDegrees'])
+
+if __name__ == "__main__":
+    main()
