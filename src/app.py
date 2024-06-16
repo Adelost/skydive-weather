@@ -15,8 +15,8 @@ def set_page_config():
 
 
 def display_title():
-    st.title('Weather Data Visualization')
-
+    # st.title('Weather Data Visualization')
+    pass
 
 @st.cache_data
 def load_csv_data(filepath):
@@ -44,6 +44,7 @@ def initialize_data_tables(filtered_data):
         'wind': filtered_data[['timestamp', 'windDegrees', 'windAvg', 'windMin', 'windMax']].dropna(),
     }
 
+
 def plot_wind_chart2(data):
     data['timestamp'] = pd.to_datetime(data['timestamp'])
     max_timestamp = data['timestamp'].max()
@@ -62,28 +63,39 @@ def plot_wind_chart2(data):
 def plot_wind_chart(data):
     data['timestamp'] = pd.to_datetime(data['timestamp'])
     max_timestamp = data['timestamp'].max()
-    min_timestamp = max_timestamp - pd.Timedelta(hours=8)
+    min_timestamp = max_timestamp - pd.Timedelta(hours=4)
+
+    # Filtering data for changes in wind speed and maintaining the last timestamp
+    data['change_avg'] = data['windAvg'].diff().fillna(0)  # Use fillna(0) for the initial NaN in diff
+    data['change_min'] = data['windMin'].diff().fillna(0)
+    data['change_max'] = data['windMax'].diff().fillna(0)
+
+    # Filter rows where there is a change in any of the wind measurement columns or it's the last timestamp
+    filtered_data = data[
+        (data['change_avg'] != 0) | (data['change_min'] != 0) | (data['change_max'] != 0) | (data['timestamp'] == max_timestamp)]
 
     # Define custom colors for each line
     color_map = {
         'windAvg': 'royalblue',  # Blue for average wind speed
-        'windMin': 'cyan',  # Green for minimum wind speed
-        'windMax': 'red'  # Red for maximum wind speed
+        'windMin': 'royalblue',  # Cyan for minimum wind speed
+        'windMax': 'firebrick'  # Red for maximum wind speed
     }
 
     # Create the figure with a layout
     fig = go.Figure()
 
-    # Add traces
-    fig.add_trace(go.Scatter(x=data['timestamp'], y=data['windMin'], mode='lines', name='Minimum Wind Speed',
-                             line=dict(color=color_map['windMin'], width=0)))
-    fig.add_trace(go.Scatter(x=data['timestamp'], y=data['windAvg'], mode='lines', name='Average Wind Speed', line=dict(color=color_map[
-        'windAvg'], width=0), fill='tonexty'))
-    fig.add_trace(go.Scatter(x=data['timestamp'], y=data['windMax'], mode='lines', name='Maximum Wind Speed', line=dict(color=color_map[
-        'windMax'], width=0), fill='tonexty'))
+    # Add traces for filtered data
+    fig.add_trace(go.Scatter(x=filtered_data['timestamp'], y=filtered_data['windMin'], mode='lines', name='Minimum Wind Speed',
+                             line=dict(color=color_map['windMin'], width=3)))
+    fig.add_trace(go.Scatter(x=filtered_data['timestamp'], y=filtered_data['windAvg'], mode='lines', name='Average Wind Speed',
+                             line=dict(color=color_map[
+                                 'windAvg'], width=0), fill='tonexty'))
+    fig.add_trace(go.Scatter(x=filtered_data['timestamp'], y=filtered_data['windMax'], mode='lines', name='Maximum Wind Speed',
+                             line=dict(color=color_map[
+                                 'windMax'], width=3), fill='tonexty'))
 
     # Adding background color bands
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=7, fillcolor="green", opacity=0.2, layer="below", line_width=0)
+    # fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=7, fillcolor="green", opacity=0.2, layer="below", line_width=0)
     fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=7, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
                   line_width=0)
     fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=11, y1=20, fillcolor="firebrick", opacity=0.1, layer="below",
@@ -92,12 +104,39 @@ def plot_wind_chart(data):
     # Set the range of the x and y axes
     fig.update_xaxes(range=[min_timestamp, max_timestamp])
     fig.update_yaxes(range=[0, 12])
+    fig.update_layout(title='Wind Speed (m/s)', showlegend=False)
 
     # Display the figure
     st.plotly_chart(fig)
 
+
 def plot_temperature_chart(data):
-    fig = px.line(data, x='timestamp', y='temperature', title='Temperature Over Time')
+    # Convert timestamp to datetime if it isn't already
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+
+    # Create a Plotly Graph Objects figure
+    fig = go.Figure()
+
+    # Add the temperature trace
+    fig.add_trace(go.Scatter(
+        x=data['timestamp'],
+        y=data['temperature'],
+        mode='lines',
+        name='Temperature',
+        line=dict(width=2),  # Custom line width
+        fill='tonexty'  # Fill to the next Y axis (essentially the x-axis in this single trace scenario)
+    ))
+
+    # Update layout to add titles and customize axes
+    fig.update_layout(
+        title='Temperature Over Time',
+        xaxis_title='Time',
+        yaxis_title='Temperature (°C)',
+        xaxis=dict(showgrid=True),  # Show grid lines for better readability
+        yaxis=dict(showgrid=True)   # Show grid lines for better readability
+    )
+
+    # Display the figure in a Streamlit app
     st.plotly_chart(fig)
 
 
@@ -139,7 +178,7 @@ def plot_wind_direction_chart(data):
                        title='Wind Direction',
                        template="plotly_dark",
                        range_r=[0, 12],
-                       color_discrete_sequence=["cyan"],  # Set bar colors to cyan
+                       color_discrete_sequence=["royalblue"],  # Set bar colors to cyan
                        barmode='overlay')  # Bars will overlay for clarity
 
     # Add polar bars for maximum wind speed
@@ -147,8 +186,8 @@ def plot_wind_direction_chart(data):
         r=summary_data['windMax'],
         theta=summary_data['direction_category'],
         name='Max Wind Speed',
-        marker_color='cyan',
-        opacity=0.2,
+        marker_color='firebrick',
+        opacity=0.4,
     ))
     fig.update_layout(showlegend=False)
     st.plotly_chart(fig)
