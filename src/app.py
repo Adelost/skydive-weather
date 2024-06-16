@@ -1,4 +1,6 @@
 import os
+import time
+
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -17,6 +19,13 @@ def set_page_config():
 def display_title():
     # st.title('Weather Data Visualization')
     pass
+
+
+def display_clock():
+    placeholder = st.empty()
+    now = datetime.utcnow() + timedelta(hours=2)  # Sweden is UTC+2
+    current_time = now.strftime("%H:%M:%S")
+    placeholder.markdown(f"<h1 style='text-align: center;'>{current_time}</h1>", unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -229,8 +238,12 @@ def main():
     data = convert_timestamp_to_datetime(data)
     data_tables = initialize_data_tables(data)
 
-    placeholder = st.empty()
-    with placeholder.container():
+    # Create a placeholder for the clock
+    clock_placeholder = st.empty()
+
+    # Use the placeholder to display the clock without blocking the rest of the app
+    with clock_placeholder.container():
+        display_clock()
 
         plot_wind_chart(data_tables['wind'])
         col2, col3 = st.columns([1, 1])
