@@ -18,6 +18,7 @@ def display_title():
     # st.title('Weather Data Visualization')
     pass
 
+
 @st.cache_data
 def load_csv_data(filepath):
     if os.path.exists(filepath):
@@ -133,7 +134,7 @@ def plot_temperature_chart(data):
         xaxis_title='Time',
         yaxis_title='Temperature (°C)',
         xaxis=dict(showgrid=True),  # Show grid lines for better readability
-        yaxis=dict(showgrid=True)   # Show grid lines for better readability
+        yaxis=dict(showgrid=True)  # Show grid lines for better readability
     )
 
     # Display the figure in a Streamlit app
@@ -194,19 +195,29 @@ def plot_wind_direction_chart(data):
 
 
 def display_map():
-    latitude = st.text_input("Latitude", value=55.923210902289945)
-    longitude = st.text_input("Longitude", value=14.09258495388121)
+    latitude = 55.923210902289945
+    longitude = 14.09258495388121
 
-    try:
-        latitude = float(latitude)
-        longitude = float(longitude)
-    except ValueError:
-        st.error("Please enter valid latitude and longitude values")
-        return
-
-    view_state = pdk.ViewState(latitude=latitude, longitude=longitude, zoom=14)
+    view_state = pdk.ViewState(latitude=latitude, longitude=longitude, zoom=12.5)
     map_style = 'mapbox://styles/mapbox/satellite-v9'
-    deck = pdk.Deck(initial_view_state=view_state, map_style=map_style)
+
+    # Define the circle layer
+    wind_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=[{"position": [longitude, latitude]}],
+        get_position="position",
+        get_radius=1000,  # Radius in meters
+        get_fill_color=[255, 0, 0, 100],  # Red color with some transparency
+    )
+    landing_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=[{"position": [longitude, latitude]}],
+        get_position="position",
+        get_radius=100,  # Radius in meters
+        get_fill_color=[0, 255, 0, 100],  # Red color with some transparency
+    )
+
+    deck = pdk.Deck(layers=[wind_layer, landing_layer], initial_view_state=view_state, map_style=map_style)
     st.pydeck_chart(deck)
 
 
@@ -220,13 +231,15 @@ def main():
 
     placeholder = st.empty()
     with placeholder.container():
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            plot_wind_chart(data_tables['wind'])
+
+        plot_wind_chart(data_tables['wind'])
+        col2, col3 = st.columns([1, 1])
         with col2:
             plot_wind_direction_chart(data_tables['wind'])
+        with col3:
+            display_map()
+
         plot_temperature_chart(data_tables['temperature'])
-        display_map()
 
 
 if __name__ == "__main__":
