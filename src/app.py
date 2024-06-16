@@ -1,9 +1,13 @@
 import os
+
+import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objs as go
 from datetime import datetime, timedelta
+import streamlit as st
+import pydeck as pdk
 
 CSV_FILE_PATH = './src/weather_data.csv'
 
@@ -40,7 +44,7 @@ def initialize_data_tables(filtered_data):
     return {
         'temperature': filtered_data[['timestamp', 'temperature']].dropna(),
         'wind': filtered_data[['timestamp', 'windAvg', 'windMin', 'windMax']].dropna(),
-        'windDegrees': filtered_data[['timestamp', 'windDegrees']].dropna()
+        'windDegrees': filtered_data[['timestamp', 'windDegrees', 'windAvg']].dropna()
     }
 
 
@@ -71,10 +75,48 @@ def adjust_timestamp_to_gmt2(data):
 
 
 def plot_wind_direction_chart(data):
-    latest_wind_deg = data['windDegrees'].iloc[-1]
-    fig = go.Figure(go.Scatterpolar(r=[1], theta=[latest_wind_deg], mode='markers', marker=dict(size=14, color='red')))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=False)), showlegend=False, title='Wind Direction')
+    # Ensure data has correct data types
+    data['windDegrees'] = data['windDegrees'].astype(float)
+    data['windAvg'] = data['windAvg'].astype(float)
+
+    # Define bins for wind direction
+    direction_bins = np.arange(0, 361, 45)  # Include 360 to close the circle
+    direction_labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]  # No need to repeat 'N'
+    data['direction_category'] = pd.cut(data['windDegrees'], bins=direction_bins, labels=direction_labels, right=False, include_lowest=True)
+
+    # Aggregate average wind speeds per direction bin
+    summary_data = data.groupby('direction_category').agg({'windAvg': 'mean'}).reset_index()
+
+    # Create the wind rose chart
+    fig = px.bar_polar(summary_data, r='windAvg', theta='direction_category',
+                       color='windAvg', template="plotly_dark",
+                       color_continuous_scale=px.colors.sequential.Plasma_r)
+
+    fig.update_layout(
+        title='Wind Rose Chart',
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, summary_data['windAvg'].max()]
+            )
+        )
+    )
+
     st.plotly_chart(fig)
+
+def display_map():
+    center_coordinates = [55.923210902289945, 14.09258495388121]
+    view_state = pdk.ViewState(
+        latitude=center_coordinates[0],
+        longitude=center_coordinates[1],
+        zoom=14
+    )
+    map_style = 'mapbox://styles/mapbox/satellite-v9'
+    deck = pdk.Deck(
+        initial_view_state=view_state,
+        map_style=map_style
+    )
+    st.pydeck_chart(deck)
 
 
 def main():
@@ -87,9 +129,15 @@ def main():
 
     placeholder = st.empty()
     with placeholder.container():
-        plot_wind_chart(data_tables['wind'])
-        plot_temperature_chart(data_tables['temperature'])
-        plot_wind_direction_chart(data_tables['windDegrees'])
+        with placeholder.container():
+            col1, col2 = st.columns([2, 1])  # Create two columns with specified width ratios
+            with col1:
+                plot_wind_chart(data_tables['wind'])
+            with col2:
+                plot_wind_direction_chart(data_tables['windDegrees'])
+            plot_temperature_chart(data_tables['temperature'])
+            display_map()
+
 
 
 if __name__ == "__main__":
