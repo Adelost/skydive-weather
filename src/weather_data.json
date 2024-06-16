@@ -1,0 +1,34 @@
+[
+    {
+        "timestamp": 1718513292577,
+        "windAvg": NaN,
+        "windDegrees": NaN,
+        "windMin": 0.0,
+        "windMax": 2.1,
+        "temperature": 12.4
+    },
+    {
+        "timestamp": 1718513300966,
+        "windAvg": NaN,
+        "windDegrees": NaN,
+        "windMin": 0.0,
+        "windMax": 2.1,
+        "temperature": 12.4
+    },
+    {
+        "timestamp": 1718513331179,
+        "windAvg": NaN,
+        "windDegrees": NaN,
+        "windMin": 0.0,
+        "windMax": 2.1,
+        "temperature": 12.6
+    },
+    {
+        "timestamp": 1718513336039,
+        "windAvg": NaN,
+        "windDegrees": NaN,
+        "windMin": 0.0,
+        "windMax": 2.1,
+        "temperature": 12.6
+    }
+]
