@@ -1,24 +1,19 @@
 import os
-
 import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objs as go
 from datetime import datetime, timedelta
-import streamlit as st
 import pydeck as pdk
 
 CSV_FILE_PATH = './src/weather_data.csv'
 
-
 def set_page_config():
     st.set_page_config(layout="wide")
 
-
 def display_title():
     st.title('Weather Data Visualization')
-
 
 @st.cache_data
 def load_csv_data(filepath):
@@ -28,17 +23,14 @@ def load_csv_data(filepath):
         st.error(f"CSV file at {filepath} not found.")
         return pd.DataFrame(columns=['timestamp', 'windAvg', 'windDegrees', 'windMin', 'windMax', 'temperature'])
 
-
 def convert_timestamp_to_datetime(data):
     data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
     return data
 
-
 def filter_data_last_hours(data, hours=8):
     now = datetime.now()
-    time_threshold = now - timedelta(hours=8)
+    time_threshold = now - timedelta(hours=hours)
     return data[data['timestamp'] >= time_threshold]
-
 
 def initialize_data_tables(filtered_data):
     return {
@@ -47,26 +39,23 @@ def initialize_data_tables(filtered_data):
         'windDegrees': filtered_data[['timestamp', 'windDegrees', 'windAvg']].dropna()
     }
 
-
 def plot_wind_chart(data):
     data['timestamp'] = pd.to_datetime(data['timestamp'])
     max_timestamp = data['timestamp'].max()
-    min_timestamp = max_timestamp - pd.Timedelta(hours=1)
+    min_timestamp = max_timestamp - pd.Timedelta(hours=8)
 
     fig = px.line(data, x='timestamp', y=['windAvg', 'windMin', 'windMax'], title='Wind Speed Over Time')
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=8, fillcolor="green", opacity=0.2, layer="below", line_width=0)
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=8, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=7, fillcolor="green", opacity=0.2, layer="below", line_width=0)
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=7, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
                   line_width=0)
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=11, y1=14, fillcolor="red", opacity=0.1, layer="below", line_width=0)
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=11, y1=20, fillcolor="red", opacity=0.1, layer="below", line_width=0)
     fig.update_xaxes(range=[min_timestamp, max_timestamp])
+    fig.update_yaxes(range=[0, 13])
     st.plotly_chart(fig)
-
 
 def plot_temperature_chart(data):
     fig = px.line(data, x='timestamp', y='temperature', title='Temperature Over Time')
-    fig.update_yaxes(range=[0, 30])
     st.plotly_chart(fig)
-
 
 def adjust_timestamp_to_gmt2(data):
     GMT_OFFSET_MS = 2 * 60 * 60 * 1000
@@ -75,49 +64,61 @@ def adjust_timestamp_to_gmt2(data):
 
 
 def plot_wind_direction_chart(data):
-    # Ensure data has correct data types
-    data['windDegrees'] = data['windDegrees'].astype(float)
-    data['windAvg'] = data['windAvg'].astype(float)
+    # Assuming 'windDegrees' and 'windAvg' are columns in 'data'
+    last_direction = data.iloc[-1]['windDegrees']
+    last_wind_avg = min(data.iloc[-1]['windAvg'], 11)  # Ensuring the maximum value is 11
 
-    # Define bins for wind direction
-    direction_bins = np.arange(0, 361, 45)  # Include 360 to close the circle
-    direction_labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]  # No need to repeat 'N'
-    data['direction_category'] = pd.cut(data['windDegrees'], bins=direction_bins, labels=direction_labels, right=False, include_lowest=True)
+    # Direction bins and labels setup
+    direction_bins = np.arange(0, 361, 45)
+    direction_labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
-    # Aggregate average wind speeds per direction bin
-    summary_data = data.groupby('direction_category').agg({'windAvg': 'mean'}).reset_index()
+    # Find the category for the last direction
+    last_direction_category = pd.cut([last_direction], bins=direction_bins, labels=direction_labels, right=False, include_lowest=True)[0]
 
-    # Create the wind rose chart
+    # Create DataFrame with all zeros
+    all_zeros = np.zeros(len(direction_labels))
+    summary_data = pd.DataFrame({
+        'direction_category': direction_labels,
+        'windAvg': all_zeros
+    })
+
+    # Set only the last direction value
+    index = direction_labels.index(last_direction_category)
+    summary_data.at[index, 'windAvg'] = last_wind_avg
+
+    # Assign colors based on 'windAvg' value
+    conditions = [
+        (summary_data['windAvg'] >= 10) & (summary_data['windAvg'] <= 12),
+        (summary_data['windAvg'] < 10)
+    ]
+    color_choices = ['red', 'cyan']  # 'red' for 10 to 12, 'cyan' for others
+    summary_data['color'] = np.select(conditions, color_choices, default='cyan')
+
+    # Create the polar bar plot with conditional coloring
     fig = px.bar_polar(summary_data, r='windAvg', theta='direction_category',
-                       color='windAvg', template="plotly_dark",
-                       color_continuous_scale=px.colors.sequential.Plasma_r)
-
-    fig.update_layout(
-        title='Wind Rose Chart',
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, summary_data['windAvg'].max()]
-            )
-        )
-    )
+                       title='Wind Direction',
+                       template="plotly_dark",
+                       range_r=[0, 12],
+                       color='color',  # Use assigned colors
+                       color_discrete_map={"red": "red", "cyan": "cyan"})  # Map colors directly
 
     st.plotly_chart(fig)
 
 def display_map():
-    center_coordinates = [55.923210902289945, 14.09258495388121]
-    view_state = pdk.ViewState(
-        latitude=center_coordinates[0],
-        longitude=center_coordinates[1],
-        zoom=14
-    )
-    map_style = 'mapbox://styles/mapbox/satellite-v9'
-    deck = pdk.Deck(
-        initial_view_state=view_state,
-        map_style=map_style
-    )
-    st.pydeck_chart(deck)
+    latitude = st.text_input("Latitude", value=55.923210902289945)
+    longitude = st.text_input("Longitude", value=14.09258495388121)
 
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+    except ValueError:
+        st.error("Please enter valid latitude and longitude values")
+        return
+
+    view_state = pdk.ViewState(latitude=latitude, longitude=longitude, zoom=14)
+    map_style = 'mapbox://styles/mapbox/satellite-v9'
+    deck = pdk.Deck(initial_view_state=view_state, map_style=map_style)
+    st.pydeck_chart(deck)
 
 def main():
     set_page_config()
@@ -129,16 +130,13 @@ def main():
 
     placeholder = st.empty()
     with placeholder.container():
-        with placeholder.container():
-            col1, col2 = st.columns([2, 1])  # Create two columns with specified width ratios
-            with col1:
-                plot_wind_chart(data_tables['wind'])
-            with col2:
-                plot_wind_direction_chart(data_tables['windDegrees'])
-            plot_temperature_chart(data_tables['temperature'])
-            display_map()
-
-
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            plot_wind_chart(data_tables['wind'])
+        with col2:
+            plot_wind_direction_chart(data_tables['windDegrees'])
+        plot_temperature_chart(data_tables['temperature'])
+        display_map()
 
 if __name__ == "__main__":
     main()
