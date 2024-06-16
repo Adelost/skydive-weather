@@ -3,12 +3,13 @@ import os
 import time
 import re
 import requests
+import csv
 from threading import Thread
 from flask import Flask, jsonify
 
 BASE_WEATHER_URL = 'https://wx.awos.se/get.aspx?viewId=kristianstad-overview.html'
 FETCH_INTERVAL = 30
-JSON_FILE_PATH = 'weather_data.json'
+CSV_FILE_PATH = 'weather_data.csv'
 
 app = Flask(__name__)
 
@@ -37,29 +38,33 @@ def fetch_weather_data():
     }
 
 
-def load_json_data(filepath):
+def load_csv_data(filepath):
     if os.path.exists(filepath):
         with open(filepath, 'r') as file:
-            return json.load(file)
+            reader = csv.DictReader(file)
+            return [row for row in reader]
     return []
 
 
-def save_json_data(filepath, data):
-    with open(filepath, 'w') as file:
-        json.dump(data, file, indent=4)
+def save_csv_data(filepath, data):
+    file_exists = os.path.isfile(filepath)
+    with open(filepath, 'a', newline='') as file:
+        fieldnames = ['timestamp', 'windAvg', 'windDegrees', 'windMin', 'windMax', 'temperature']
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(data)
 
 
-def update_json_file(data):
-    current_data = load_json_data(JSON_FILE_PATH)
-    current_data.append(data)
-    save_json_data(JSON_FILE_PATH, current_data)
+def update_csv_file(data):
+    save_csv_data(CSV_FILE_PATH, data)
 
 
 @app.route('/api/weather', methods=['GET'])
 def get_weather():
     try:
         data = fetch_weather_data()
-        update_json_file(data)
+        update_csv_file(data)
         return jsonify(data)
     except Exception as error:
         return jsonify({'error': 'Failed to fetch weather data'}), 500
@@ -69,7 +74,7 @@ def periodic_fetch():
     while True:
         try:
             data = fetch_weather_data()
-            update_json_file(data)
+            update_csv_file(data)
             print('Updated Weather Data:', data)
         except Exception as error:
             print('Failed to fetch weather data', error)

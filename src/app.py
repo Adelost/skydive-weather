@@ -1,97 +1,58 @@
-from flask import Flask, jsonify
-import requests
-import re
-import time
-from threading import Thread
-import streamlit as st
+import os
 import pandas as pd
+import streamlit as st
+import plotly.graph_objs as go
 
-BASE_WEATHER_URL = 'https://wx.awos.se/get.aspx?viewId=kristianstad-overview.html'
-FETCH_INTERVAL = 30
-MAX_GRAPH_DURATION = 60 * 60
+CSV_FILE_PATH = './src/weather_data.csv'
 
-app = Flask(__name__)
+st.title('Weather Data Visualization')
 
+# Load data from CSV
+@st.cache_data
+def load_csv_data(filepath):
+    if os.path.exists(filepath):
+        return pd.read_csv(filepath)
+    else:
+        st.error(f"CSV file at {filepath} not found.")
+        return pd.DataFrame(columns=['timestamp', 'windAvg', 'windDegrees', 'windMin', 'windMax', 'temperature'])
 
-def extract_data(html, pattern):
-    match = re.search(pattern, html)
-    return float(match.group(1)) if match else float('nan')
+data = load_csv_data(CSV_FILE_PATH)
 
+# Convert timestamp to datetime
+data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
 
-def knots_to_meters_per_second(knots):
-    return round(knots * 0.51444, 1)
-
-
-def fetch_weather_data():
-    timestamp = int(time.time() * 1000)
-    response = requests.get(f"{BASE_WEATHER_URL}&{timestamp}")
-    html = response.text
-
-    return {
-        'windAvg': knots_to_meters_per_second(extract_data(html, r'WIND\s+\d+\/(\d+(\.\d+)?)')),
-        'windDegrees': extract_data(html, r'WIND\s+(\d+)\/'),
-        'windMin': knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+(\d+(\.\d+)?)')),
-        'windMax': knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+\d+\/(\d+(\.\d+)?)')),
-        'temperature': extract_data(html, r'\bT\s+(\d+(\.\d+)?)'),
-    }
-
-
-@app.route('/api/weather', methods=['GET'])
-def get_weather():
-    try:
-        data = fetch_weather_data()
-        return jsonify(data)
-    except Exception as error:
-        return jsonify({'error': 'Failed to fetch weather data'}), 500
-
-
-def periodic_fetch():
-    while True:
-        try:
-            data = fetch_weather_data()
-            print('Updated Weather Data:', data)
-        except Exception as error:
-            print('Failed to fetch weather data', error)
-        time.sleep(FETCH_INTERVAL)
-
-
-fetch_thread = Thread(target=periodic_fetch, daemon=True)
-fetch_thread.start()
-
-st.title('Real-time Weather Data Visualization')
-
+# Initialize data tables for Streamlit charts
 data_tables = {
-    'temperature': {'data': pd.DataFrame(columns=['time', 'temperature']), 'chart': st.line_chart()},
-    'wind': {'data': pd.DataFrame(columns=['time', 'windAvg', 'windMin', 'windMax']), 'chart': st.line_chart()},
-    'windDegrees': {'data': pd.DataFrame(columns=['time', 'windDegrees']), 'chart': st.line_chart()}
+    'temperature': data[['timestamp', 'temperature']].dropna(),
+    'wind': data[['timestamp', 'windAvg', 'windMin', 'windMax']].dropna(),
+    'windDegrees': data[['timestamp', 'windDegrees']].dropna()
 }
 
+# Create charts
+placeholder = st.empty()
+with placeholder.container():
+    col1, col2 = st.columns(2)
+    with col1:
+        st.line_chart(data_tables['temperature'].set_index('timestamp'))
+    with col2:
+        st.line_chart(data_tables['wind'].set_index('timestamp'))
+    col3, col4 = st.columns(2)
+    with col3:
+        st.line_chart(data_tables['windDegrees'].set_index('timestamp'))
+    with col4:
+        if not data_tables['windDegrees'].empty:
+            latest_wind_deg = data_tables['windDegrees']['windDegrees'].iloc[-1]
+            fig = go.Figure(go.Scatterpolar(
+                r=[1],
+                theta=[latest_wind_deg],
+                mode='markers',
+                marker=dict(size=14, color='red')
+            ))
 
-def update_data():
-    weather_data = fetch_weather_data()
-    current_time = pd.Timestamp.now()
-
-    for key, value in weather_data.items():
-        if key in data_tables:
-            new_data = pd.DataFrame({'time': [current_time], key: [value]})
-            data_table = data_tables[key]['data']
-            data_table = pd.concat([data_table, new_data], ignore_index=True)
-            data_table = data_table[data_table['time'] > (current_time - pd.Timedelta(seconds=MAX_GRAPH_DURATION))]
-            data_tables[key]['data'] = data_table
-            data_tables[key]['chart'].add_rows(data_table.set_index('time'))
-
-    wind_data = pd.DataFrame({
-        'time': [current_time],
-        'windAvg': [weather_data['windAvg']],
-        'windMin': [weather_data['windMin']],
-        'windMax': [weather_data['windMax']]
-    })
-    data_tables['wind']['data'] = pd.concat([data_tables['wind']['data'], wind_data], ignore_index=True)
-    data_tables['wind']['data'] = data_tables['wind']['data'][
-        data_tables['wind']['data']['time'] > (current_time - pd.Timedelta(seconds=MAX_GRAPH_DURATION))]
-    data_tables['wind']['chart'].add_rows(data_tables['wind']['data'].set_index('time'))
-
-
-while True:
-    update_data()
-    time.sleep(FETCH_INTERVAL)
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(visible=False),
+                ),
+                showlegend=False
+            )
+            st.plotly_chart(fig)
