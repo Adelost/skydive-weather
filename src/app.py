@@ -299,6 +299,7 @@ def display_map():
     deck = pdk.Deck(
         layers=[oval_layer, landing_layer],
         initial_view_state=view_state,
+        map_style=map_style,
     )
 
     st.markdown("Spot", unsafe_allow_html=True)
