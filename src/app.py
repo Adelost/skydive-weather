@@ -24,7 +24,7 @@ def display_title():
 def display_clock():
     placeholder = st.empty()
     now = datetime.utcnow() + timedelta(hours=2)  # Sweden is UTC+2
-    current_time = now.strftime("%H:%M:%S")
+    current_time = now.strftime("%H:%M")
     placeholder.markdown(f"<h1 style='text-align: center;'>{current_time}</h1>", unsafe_allow_html=True)
 
 
@@ -259,6 +259,16 @@ def plot_wind_direction_chart(data):
     st.plotly_chart(fig)
 
 
+def generate_ellipse_points(center, radius_x, radius_y, num_points=100):
+    angles = np.linspace(0, 2 * np.pi, num_points)
+    # Correct the aspect ratio based on latitude
+    aspect_ratio = np.cos(np.radians(center[1]))
+    return [[
+        center[0] + (radius_x * np.cos(angle)) / aspect_ratio,
+        center[1] + radius_y * np.sin(angle)
+    ] for angle in angles]
+
+
 def display_map():
     latitude = 55.923210902289945
     longitude = 14.09258495388121
@@ -266,23 +276,32 @@ def display_map():
     view_state = pdk.ViewState(latitude=latitude, longitude=longitude, zoom=12.5)
     map_style = 'mapbox://styles/mapbox/satellite-v9'
 
-    # Define the circle layer
-    wind_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=[{"position": [longitude, latitude]}],
-        get_position="position",
-        get_radius=1000,  # Radius in meters
+    ellipse_points = generate_ellipse_points([longitude, latitude], 0.005, 0.01)  # Adjust radii as needed
+
+    # Define the oval layer
+    oval_layer = pdk.Layer(
+        "PolygonLayer",
+        data=[{"coordinates": [ellipse_points], "name": "ellipse"}],
+        get_polygon="coordinates",
         get_fill_color=[255, 0, 0, 100],  # Red color with some transparency
+        get_line_color=[255, 0, 0, 255],  # Red outline
+        line_width_min_pixels=2
     )
+
     landing_layer = pdk.Layer(
         "ScatterplotLayer",
         data=[{"position": [longitude, latitude]}],
         get_position="position",
         get_radius=100,  # Radius in meters
-        get_fill_color=[0, 255, 0, 100],  # Red color with some transparency
+        get_fill_color=[0, 255, 0, 100],  # Green color with some transparency
     )
 
-    deck = pdk.Deck(layers=[wind_layer, landing_layer], initial_view_state=view_state)
+    deck = pdk.Deck(
+        layers=[oval_layer, landing_layer],
+        initial_view_state=view_state,
+    )
+
+    st.markdown("Spot", unsafe_allow_html=True)
     st.pydeck_chart(deck)
 
 
@@ -311,9 +330,9 @@ def main():
             with col3:
                 plot_temperature_chart(data_tables['temperature'])
 
-            # display_map()
+            display_map()
 
-        time.sleep(10)
+        time.sleep(30)
 
 
 if __name__ == "__main__":
