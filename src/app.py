@@ -133,7 +133,7 @@ def plot_temperature_chart(data):
         y=data['temperature'],
         mode='lines',
         name='Temperature',
-        line=dict(width=2),  # Custom line width
+        line=dict(color="royalblue", width=3),  # Custom line width
         fill='tonexty'  # Fill to the next Y axis (essentially the x-axis in this single trace scenario)
     ))
 
@@ -145,6 +145,7 @@ def plot_temperature_chart(data):
         xaxis=dict(showgrid=True),  # Show grid lines for better readability
         yaxis=dict(showgrid=True)  # Show grid lines for better readability
     )
+    fig.update_yaxes(range=[0, 30])
 
     # Display the figure in a Streamlit app
     st.plotly_chart(fig)

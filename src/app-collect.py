@@ -13,6 +13,9 @@ CSV_FILE_PATH = 'weather_data.csv'
 
 app = Flask(__name__)
 
+# Global variable to hold weather data
+weather_data = []
+
 
 def extract_data(html, pattern):
     match = re.search(pattern, html)
@@ -28,13 +31,19 @@ def fetch_weather_data():
     response = requests.get(f"{BASE_WEATHER_URL}&{timestamp}")
     html = response.text
 
+    wind_avg = knots_to_meters_per_second(extract_data(html, r'MEAN02\s+\d+\/(\d+(\.\d+)?)'))
+    wind_degrees = extract_data(html, r'MEAN02\s+(\d+)\/')
+    wind_min = knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+(\d+(\.\d+)?)'))
+    wind_max = knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+\d+\/(\d+(\.\d+)?)'))
+    temperature = extract_data(html, r'\bT\s+(\d+(\.\d+)?)')
+
     return {
         'timestamp': timestamp,
-        'windAvg': knots_to_meters_per_second(extract_data(html, r'WIND\s+\d+\/(\d+(\.\d+)?)')),
-        'windDegrees': extract_data(html, r'WIND\s+(\d+)\/'),
-        'windMin': knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+(\d+(\.\d+)?)')),
-        'windMax': knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+\d+\/(\d+(\.\d+)?)')),
-        'temperature': extract_data(html, r'\bT\s+(\d+(\.\d+)?)'),
+        'windAvg': wind_avg,
+        'windDegrees': wind_degrees,
+        'windMin': wind_min,
+        'windMax': wind_max,
+        'temperature': temperature,
     }
 
 
@@ -57,6 +66,9 @@ def save_csv_data(filepath, data):
 
 
 def update_csv_file(data):
+    global weather_data
+    weather_data = filter_identical_rows(weather_data)
+    weather_data.append(data)
     save_csv_data(CSV_FILE_PATH, data)
 
 
@@ -70,6 +82,25 @@ def get_weather():
         return jsonify({'error': 'Failed to fetch weather data'}), 500
 
 
+def filter_identical_rows(data, ignore_keys=['timestamp']):
+    if not data:
+        return data
+
+    filtered_data = [data[0]]
+    for i in range(1, len(data) - 1):
+        if not rows_are_identical(data[i], data[i - 1], ignore_keys):
+            filtered_data.append(data[i])
+    # Always add last row
+    if len(filtered_data) > 1:
+        filtered_data.append(data[-1])
+    return filtered_data
+
+
+def rows_are_identical(row1, row2, ignore_keys):
+    keys = set(row1.keys()) - set(ignore_keys)
+    return all(row1[key] == row2[key] for key in keys)
+
+
 def periodic_fetch():
     while True:
         try:
@@ -81,8 +112,13 @@ def periodic_fetch():
         time.sleep(FETCH_INTERVAL)
 
 
-fetch_thread = Thread(target=periodic_fetch, daemon=True)
-fetch_thread.start()
-
 if __name__ == '__main__':
+    # Load the existing CSV data into the global variable at startup
+    weather_data = load_csv_data(CSV_FILE_PATH)
+    weather_data = filter_identical_rows(weather_data)
+    # Start the periodic fetch thread
+    fetch_thread = Thread(target=periodic_fetch, daemon=True)
+    fetch_thread.start()
+
+    # Run the Flask app
     app.run(debug=True, use_reloader=False)
