@@ -60,7 +60,7 @@ def plot_wind_chart2(data):
     max_timestamp = data['timestamp'].max()
     min_timestamp = max_timestamp - pd.Timedelta(hours=8)
 
-    fig = px.line(data, x='timestamp', y=['windAvg', 'windMin', 'windMax'], title='Wind Speed Over Time')
+    fig = px.line(data, x='timestamp', y=['windAvg', 'windMin', 'windMax'], title='Wind Speed')
     fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=7, fillcolor="green", opacity=0.2, layer="below", line_width=0)
     fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=7, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
                   line_width=0)
@@ -159,7 +159,7 @@ def plot_temperature_chart(data):
 
     # Update layout to add titles and customize axes
     fig.update_layout(
-        title='Temperature Over Time',
+        title='Temperature',
         xaxis_title='Time',
         yaxis_title='Temperature (°C)',
         xaxis=dict(showgrid=True),  # Show grid lines for better readability
