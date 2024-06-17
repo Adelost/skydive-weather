@@ -31,10 +31,19 @@ def fetch_weather_data():
     response = requests.get(f"{BASE_WEATHER_URL}&{timestamp}")
     html = response.text
 
-    wind_avg = knots_to_meters_per_second(extract_data(html, r'MEAN02\s+\d+\/(\d+(\.\d+)?)'))
-    wind_degrees = extract_data(html, r'MEAN02\s+(\d+)\/')
-    wind_min = knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+(\d+(\.\d+)?)'))
-    wind_max = knots_to_meters_per_second(extract_data(html, r'MIN\/MAX\s+\d+\/(\d+(\.\d+)?)'))
+    wind_avg1 = extract_data(html, r'MEAN02\s+\d+\/(\d+)')
+    wind_avg2 = extract_data(html, r'MEAN02\s+\d+\/\d+ KT\s+\d+\/(\d+)')
+    wind_degrees1 = extract_data(html, r'MEAN02\s+(\d+)\/\d+')
+    wind_degrees2 = extract_data(html, r'MEAN02\s+\d+\/\d+ KT\s+(\d+)\/\d+')
+    wind_min1 = extract_data(html, r'MIN\/MAX\s+(\d+)\/\d+')
+    wind_max1 = extract_data(html, r'MIN\/MAX\s+\d+\/(\d+)')
+    wind_min2 = extract_data(html, r'MIN\/MAX\s+\d+\/\d+\s+(\d+)\/\d+')
+    wind_max2 = extract_data(html, r'MIN\/MAX\s+\d+\/\d+\s+\d+\/(\d+)')
+
+    wind_avg = knots_to_meters_per_second((wind_avg1 + wind_avg2) / 2)
+    wind_degrees = (wind_degrees1 + wind_degrees2) / 2
+    wind_min = knots_to_meters_per_second(min(wind_min1, wind_min2))
+    wind_max = knots_to_meters_per_second(min(wind_max1, wind_max2))
     temperature = extract_data(html, r'\bT\s+(\d+(\.\d+)?)')
 
     return {
