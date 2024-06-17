@@ -114,7 +114,27 @@ def plot_wind_chart(data):
     # Set the range of the x and y axes
     fig.update_xaxes(range=[min_timestamp, max_timestamp])
     fig.update_yaxes(range=[0, 12])
-    fig.update_layout(title='Wind Speed (m/s)', showlegend=False)
+    fig.update_layout(
+        title='Wind Speed',
+        showlegend=False,
+        margin=dict(l=0, r=150, t=50, b=0)  # Adjust margins
+    )
+    annotations = []
+    current_temp = data['windAvg'].iloc[-1]
+    current_time = data['timestamp'].iloc[-1]
+    annotations.append(dict(
+        xref='x', x=current_time, y=current_temp,
+        xanchor='left', yanchor='middle',
+        text='{} m/s'.format(current_temp),
+        font=dict(family='Arial', size=16, color='white'),
+        showarrow=False,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor='white'
+    ))
+
+    fig.update_layout(annotations=annotations)
 
     # Display the figure
     st.plotly_chart(fig)
@@ -143,9 +163,29 @@ def plot_temperature_chart(data):
         xaxis_title='Time',
         yaxis_title='Temperature (°C)',
         xaxis=dict(showgrid=True),  # Show grid lines for better readability
-        yaxis=dict(showgrid=True)  # Show grid lines for better readability
+        yaxis=dict(showgrid=True),
     )
     fig.update_yaxes(range=[0, 30])
+
+    # Add annotation for the current temperature value
+    annotations = []
+    current_temp = data['temperature'].iloc[-1]
+    current_time = data['timestamp'].iloc[-1]
+    annotations.append(dict(
+        xref='x', x=current_time, y=current_temp,
+        xanchor='left', yanchor='middle',
+        text='{}°C'.format(current_temp),
+        font=dict(family='Arial', size=16, color='white'),
+        showarrow=False,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor='white'
+    ))
+    fig.update_layout(
+        margin=dict(l=0, r=150, t=50, b=0)  # Adjust margins
+    )
+    fig.update_layout(annotations=annotations)
 
     # Display the figure in a Streamlit app
     st.plotly_chart(fig)
@@ -256,7 +296,6 @@ def main():
             with col3:
                 # display_map()
                 plot_temperature_chart(data_tables['temperature'])
-
 
         time.sleep(10)
 
