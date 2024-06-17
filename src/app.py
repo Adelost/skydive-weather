@@ -204,23 +204,38 @@ def plot_wind_direction_chart(data):
     last_wind_max = min(data.iloc[-1]['windMax'], 11)  # Getting the maximum wind speed
 
     # Direction bins and labels setup
-    direction_bins = np.arange(0, 361, 45)
-    direction_labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    direction_bins = np.arange(-22.5, 361, 45)
+    direction_labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"]
 
-    # Find the category for the last direction
-    last_direction_category = pd.cut([last_direction], bins=direction_bins, labels=direction_labels, right=False, include_lowest=True)[0]
+    # Adjust the binning process to handle the circular nature of directions
+    if last_direction >= 337.5 or last_direction < 22.5:
+        last_direction_category = "N"
+    elif 22.5 <= last_direction < 67.5:
+        last_direction_category = "NE"
+    elif 67.5 <= last_direction < 112.5:
+        last_direction_category = "E"
+    elif 112.5 <= last_direction < 157.5:
+        last_direction_category = "SE"
+    elif 157.5 <= last_direction < 202.5:
+        last_direction_category = "S"
+    elif 202.5 <= last_direction < 247.5:
+        last_direction_category = "SW"
+    elif 247.5 <= last_direction < 292.5:
+        last_direction_category = "W"
+    elif 292.5 <= last_direction < 337.5:
+        last_direction_category = "NW"
 
     # Create DataFrame with all zeros for average wind speed and max wind speed
-    all_zeros_avg = np.zeros(len(direction_labels))
-    all_zeros_max = np.zeros(len(direction_labels))
+    all_zeros_avg = np.zeros(len(direction_labels) - 1)
+    all_zeros_max = np.zeros(len(direction_labels) - 1)
     summary_data = pd.DataFrame({
-        'direction_category': direction_labels,
+        'direction_category': direction_labels[:-1],
         'windAvg': all_zeros_avg,
         'windMax': all_zeros_max  # Include windMax column
     })
 
     # Set only the last direction values for windAvg and windMax
-    index = direction_labels.index(last_direction_category)
+    index = direction_labels[:-1].index(last_direction_category)
     summary_data.at[index, 'windAvg'] = last_wind_avg
     summary_data.at[index, 'windMax'] = last_wind_max  # Set max wind speed at the same index
 
@@ -267,7 +282,7 @@ def display_map():
         get_fill_color=[0, 255, 0, 100],  # Red color with some transparency
     )
 
-    deck = pdk.Deck(layers=[wind_layer, landing_layer], initial_view_state=view_state, map_style=map_style)
+    deck = pdk.Deck(layers=[wind_layer, landing_layer], initial_view_state=view_state)
     st.pydeck_chart(deck)
 
 
@@ -294,8 +309,9 @@ def main():
             with col2:
                 plot_wind_direction_chart(data_tables['wind'])
             with col3:
-                # display_map()
                 plot_temperature_chart(data_tables['temperature'])
+
+            # display_map()
 
         time.sleep(10)
 
