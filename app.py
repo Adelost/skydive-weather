@@ -314,7 +314,7 @@ def plot_wind_direction_chart(data):
 
     # Update layout to add titles and customize axes
     fig.update_layout(
-        title='Wind Direction',
+        title='',
         xaxis_title='Time',
         yaxis_title='Wind Direction (Degrees)',
         xaxis=dict(showgrid=True),  # Show grid lines for better readability
