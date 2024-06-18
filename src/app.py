@@ -184,7 +184,7 @@ def adjust_timestamp_to_gmt2(data):
     return data
 
 
-def plot_wind_direction_chart(data):
+def plot_wind_rose(data):
     # Assuming 'windDegrees', 'windAvg', and 'windMax' are columns in 'data'
     last_direction = data.iloc[-1]['windDegrees']
     last_wind_avg = min(data.iloc[-1]['windAvg'], 11)  # Ensuring the maximum value for wind average is 11
@@ -292,6 +292,35 @@ def display_map():
     st.markdown("Spot", unsafe_allow_html=True)
     st.pydeck_chart(deck)
 
+def plot_wind_direction_chart(data):
+    # Convert timestamp to datetime if it isn't already
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    last_x_hours = data[data['timestamp'] >= (data['timestamp'].max() - pd.Timedelta(hours=SHOW_HOURS))]
+
+    # Create a Plotly Graph Objects figure
+    fig = go.Figure()
+
+    # Add the wind direction trace
+    fig.add_trace(go.Scatter(
+        x=last_x_hours['timestamp'],
+        y=last_x_hours['windDegrees'],
+        mode='lines',
+        name='Wind Direction',
+        line=dict(color="royalblue", width=3),  # Custom line width
+    ))
+
+    # Update layout to add titles and customize axes
+    fig.update_layout(
+        title='Wind Direction',
+        xaxis_title='Time',
+        yaxis_title='Wind Direction (Degrees)',
+        xaxis=dict(showgrid=True),  # Show grid lines for better readability
+        yaxis=dict(showgrid=True),
+    )
+    fig.update_yaxes(range=[0, 360])  # Wind direction ranges from 0 to 360 degrees
+
+    # Display the figure in a Streamlit app
+    st.plotly_chart(fig)
 
 def main():
     set_page_config()
@@ -314,10 +343,10 @@ def main():
             plot_wind_chart(data_tables['wind'])
             col2, col3 = st.columns([1, 1])
             with col2:
-                plot_wind_direction_chart(data_tables['wind'])
+                plot_wind_rose(data_tables['wind'])
             with col3:
-                plot_temperature_chart(data_tables['temperature'])
-
+                plot_wind_direction_chart(data_tables['wind'])
+            plot_temperature_chart(data_tables['temperature'])
             display_map()
 
         time.sleep(30)
