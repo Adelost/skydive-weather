@@ -9,7 +9,8 @@ import plotly.graph_objs as go
 from datetime import datetime, timedelta
 import pydeck as pdk
 
-CSV_FILE_PATH = './src/weather_data.csv'
+CSV_FILE_PATH = './src/weather_entries.csv'
+SHOW_HOURS = 2
 
 
 def set_page_config():
@@ -55,25 +56,10 @@ def initialize_data_tables(filtered_data):
     }
 
 
-def plot_wind_chart2(data):
-    data['timestamp'] = pd.to_datetime(data['timestamp'])
-    max_timestamp = data['timestamp'].max()
-    min_timestamp = max_timestamp - pd.Timedelta(hours=8)
-
-    fig = px.line(data, x='timestamp', y=['windAvg', 'windMin', 'windMax'], title='Wind Speed')
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=7, fillcolor="green", opacity=0.2, layer="below", line_width=0)
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=7, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
-                  line_width=0)
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=11, y1=20, fillcolor="red", opacity=0.1, layer="below", line_width=0)
-    fig.update_xaxes(range=[min_timestamp, max_timestamp])
-    fig.update_yaxes(range=[0, 13])
-    st.plotly_chart(fig)
-
-
 def plot_wind_chart(data):
     data['timestamp'] = pd.to_datetime(data['timestamp'])
     max_timestamp = data['timestamp'].max()
-    min_timestamp = max_timestamp - pd.Timedelta(hours=4)
+    min_timestamp = max_timestamp - pd.Timedelta(hours=SHOW_HOURS)
 
     # Filtering data for changes in wind speed and maintaining the last timestamp
     data['change_avg'] = data['windAvg'].diff().fillna(0)  # Use fillna(0) for the initial NaN in diff
@@ -105,8 +91,8 @@ def plot_wind_chart(data):
                                  'windMax'], width=3), fill='tonexty'))
 
     # Adding background color bands
-    # fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=7, fillcolor="green", opacity=0.2, layer="below", line_width=0)
-    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=7, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=0, y1=6, fillcolor="green", opacity=0.1, layer="below", line_width=0)
+    fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=6, y1=11, fillcolor="yellow", opacity=0.1, layer="below",
                   line_width=0)
     fig.add_shape(type="rect", x0=min_timestamp, x1=max_timestamp, y0=11, y1=20, fillcolor="firebrick", opacity=0.1, layer="below",
                   line_width=0)
@@ -143,14 +129,15 @@ def plot_wind_chart(data):
 def plot_temperature_chart(data):
     # Convert timestamp to datetime if it isn't already
     data['timestamp'] = pd.to_datetime(data['timestamp'])
+    last_x_hours = data[data['timestamp'] >= (data['timestamp'].max() - pd.Timedelta(hours=SHOW_HOURS))]
 
     # Create a Plotly Graph Objects figure
     fig = go.Figure()
 
     # Add the temperature trace
     fig.add_trace(go.Scatter(
-        x=data['timestamp'],
-        y=data['temperature'],
+        x=last_x_hours['timestamp'],
+        y=last_x_hours['temperature'],
         mode='lines',
         name='Temperature',
         line=dict(color="royalblue", width=3),  # Custom line width
@@ -201,7 +188,7 @@ def plot_wind_direction_chart(data):
     # Assuming 'windDegrees', 'windAvg', and 'windMax' are columns in 'data'
     last_direction = data.iloc[-1]['windDegrees']
     last_wind_avg = min(data.iloc[-1]['windAvg'], 11)  # Ensuring the maximum value for wind average is 11
-    last_wind_max = min(data.iloc[-1]['windMax'], 11)  # Getting the maximum wind speed
+    last_wind_max = min(data.iloc[-1]['windMax'] - last_wind_avg, 11)  # Getting the maximum wind speed
 
     # Direction bins and labels setup
     direction_bins = np.arange(-22.5, 361, 45)

@@ -11,6 +11,7 @@ BASE_WEATHER_URL = 'https://wx.awos.se/get.aspx?viewId=kristianstad-overview.htm
 FETCH_INTERVAL = 30
 CSV_FILE_PATH = 'weather_entries.csv'
 
+
 app = Flask(__name__)
 
 # Global variable to hold weather data
@@ -43,7 +44,7 @@ def fetch_weather_entry():
     wind_avg = knots_to_meters_per_second((wind_avg1 + wind_avg2) / 2)
     wind_degrees = (wind_degrees1 + wind_degrees2) / 2
     wind_min = knots_to_meters_per_second(min(wind_min1, wind_min2))
-    wind_max = knots_to_meters_per_second(min(wind_max1, wind_max2))
+    wind_max = knots_to_meters_per_second(max(wind_max1, wind_max2, wind_avg))
     temperature = extract_data(html, r'\bT\s+(\d+(\.\d+)?)')
 
     return {
