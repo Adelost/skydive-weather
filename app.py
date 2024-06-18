@@ -11,7 +11,7 @@ import pydeck as pdk
 
 from app_collect import fetch_weather_entry_and_save
 
-CSV_FILE_PATH = './src/weather_entries.csv'
+CSV_FILE_PATH = 'weather_entries.csv'
 SHOW_HOURS = 2
 
 

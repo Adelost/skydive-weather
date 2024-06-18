@@ -11,7 +11,6 @@ BASE_WEATHER_URL = 'https://wx.awos.se/get.aspx?viewId=kristianstad-overview.htm
 FETCH_INTERVAL = 30
 CSV_FILE_PATH = 'weather_entries.csv'
 
-
 app = Flask(__name__)
 
 # Global variable to hold weather data
@@ -101,6 +100,20 @@ def rows_are_identical(row1, row2, ignore_keys):
     return all(row1[key] == row2[key] for key in keys)
 
 
+def fetch_weather_entry_and_save():
+    global weather_entries
+    try:
+        entry = fetch_weather_entry()
+        print(entry)
+        weather_entries.append(entry)
+        weather_entries = filter_identical_rows(weather_entries)
+        update_csv_file(weather_entries)
+        print("save")
+    except Exception as error:
+        print('Failed to fetch weather data', error)
+    return weather_entries
+
+
 def periodic_fetch():
     while True:
         fetch_weather_entry_and_save()
@@ -117,16 +130,3 @@ if __name__ == '__main__':
 
     # Run the Flask app
     app.run(debug=True, use_reloader=False)
-
-
-def fetch_weather_entry_and_save():
-    global weather_entries
-    try:
-        entry = fetch_weather_entry()
-        print(entry)
-        weather_entries.append(entry)
-        weather_entries = filter_identical_rows(weather_entries)
-        update_csv_file(weather_entries)
-    except Exception as error:
-        print('Failed to fetch weather data', error)
-    return weather_entries
