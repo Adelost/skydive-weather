@@ -9,12 +9,12 @@ from flask import Flask, jsonify
 
 BASE_WEATHER_URL = 'https://wx.awos.se/get.aspx?viewId=kristianstad-overview.html'
 FETCH_INTERVAL = 30
-CSV_FILE_PATH = 'weather_data.csv'
+CSV_FILE_PATH = 'weather_entries.csv'
 
 app = Flask(__name__)
 
 # Global variable to hold weather data
-weather_data = []
+weather_entries = []
 
 
 def extract_data(html, pattern):
@@ -26,7 +26,7 @@ def knots_to_meters_per_second(knots):
     return round(knots * 0.51444, 1)
 
 
-def fetch_weather_data():
+def fetch_weather_entry():
     timestamp = int(time.time() * 1000)
     response = requests.get(f"{BASE_WEATHER_URL}&{timestamp}")
     html = response.text
@@ -65,35 +65,25 @@ def load_csv_data(filepath):
 
 
 def save_csv_data(filepath, data):
-    file_exists = os.path.isfile(filepath)
-    with open(filepath, 'a', newline='') as file:
+    with open(filepath, 'w', newline='') as file:
         fieldnames = ['timestamp', 'windAvg', 'windDegrees', 'windMin', 'windMax', 'temperature']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(data)
+        writer.writeheader()
+        writer.writerows(data)
 
 
-def update_csv_file(data):
-    global weather_data
-    weather_data = filter_identical_rows(weather_data)
-    weather_data.append(data)
-    save_csv_data(CSV_FILE_PATH, data)
-
-
-@app.route('/api/weather', methods=['GET'])
-def get_weather():
-    try:
-        data = fetch_weather_data()
-        update_csv_file(data)
-        return jsonify(data)
-    except Exception as error:
-        return jsonify({'error': 'Failed to fetch weather data'}), 500
+def update_csv_file(weather_entries):
+    save_csv_data(CSV_FILE_PATH, weather_entries)
 
 
 def filter_identical_rows(data, ignore_keys=['timestamp']):
     if not data:
         return data
+
+    # Filter rows older than 24 hours
+    current_time = int(time.time() * 1000)
+    twenty_four_hours_ago = current_time - 24 * 2 * 60 * 60 * 1000
+    data = [row for row in data if int(row['timestamp']) >= twenty_four_hours_ago]
 
     filtered_data = [data[0]]
     for i in range(1, len(data) - 1):
@@ -112,19 +102,27 @@ def rows_are_identical(row1, row2, ignore_keys):
 
 def periodic_fetch():
     while True:
-        try:
-            data = fetch_weather_data()
-            update_csv_file(data)
-            print('Updated Weather Data:', data)
-        except Exception as error:
-            print('Failed to fetch weather data', error)
+        fetch_weather_entry_and_save()
         time.sleep(FETCH_INTERVAL)
+
+
+def fetch_weather_entry_and_save():
+    global weather_entries
+    try:
+        entry = fetch_weather_entry()
+        print(entry)
+        weather_entries.append(entry)
+        weather_entries = filter_identical_rows(weather_entries)
+        update_csv_file(weather_entries)
+    except Exception as error:
+        print('Failed to fetch weather data', error)
+    return weather_entries
 
 
 if __name__ == '__main__':
     # Load the existing CSV data into the global variable at startup
-    weather_data = load_csv_data(CSV_FILE_PATH)
-    weather_data = filter_identical_rows(weather_data)
+    weather_entries = load_csv_data(CSV_FILE_PATH)
+    weather_entries = filter_identical_rows(weather_entries)
     # Start the periodic fetch thread
     fetch_thread = Thread(target=periodic_fetch, daemon=True)
     fetch_thread.start()
