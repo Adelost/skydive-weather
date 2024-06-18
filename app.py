@@ -9,7 +9,7 @@ import plotly.graph_objs as go
 from datetime import datetime, timedelta
 import pydeck as pdk
 
-from app_collect import fetch_weather_entry_and_save
+from background_task import background_task
 
 CSV_FILE_PATH = 'weather_entries.csv'
 SHOW_HOURS = 2
@@ -327,6 +327,7 @@ def plot_wind_direction_chart(data):
 
 
 def main():
+    _ = background_task
     set_page_config()
     display_title()
 
@@ -334,7 +335,6 @@ def main():
     clock_placeholder = st.empty()
 
     while True:
-        fetch_weather_entry_and_save()
         data = load_csv_data(CSV_FILE_PATH)
         data = adjust_timestamp_to_gmt2(data)
         data = convert_timestamp_to_datetime(data)
@@ -349,6 +349,7 @@ def main():
             col2, col3 = st.columns([1, 1])
             with col2:
                 plot_wind_rose(data_tables['wind'])
+                pass
             with col3:
                 plot_wind_direction_chart(data_tables['wind'])
             plot_temperature_chart(data_tables['temperature'])

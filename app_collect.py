@@ -1,11 +1,11 @@
-import json
-import os
-import time
-import re
-import requests
 import csv
+import os
+import re
+import time
 from threading import Thread
-from flask import Flask, jsonify
+
+import requests
+from flask import Flask
 
 BASE_WEATHER_URL = 'https://wx.awos.se/get.aspx?viewId=kristianstad-overview.html'
 FETCH_INTERVAL = 30
@@ -76,22 +76,30 @@ def update_csv_file(weather_entries):
     save_csv_data(CSV_FILE_PATH, weather_entries)
 
 
+def rows_are_identical(row1, row2, ignore_keys):
+    for key in row1:
+        if key not in ignore_keys and row1[key] != row2[key]:
+            return False
+    return True
+
+
 def filter_identical_rows(data, ignore_keys=['timestamp']):
     if not data:
         return data
 
     # Filter rows older than 24 hours
     current_time = int(time.time() * 1000)
-    twenty_four_hours_ago = current_time - 24 * 2 * 60 * 60 * 1000
+    twenty_four_hours_ago = current_time - 24 * 60 * 60 * 1000  # Correct calculation for 24 hours
     data = [row for row in data if int(row['timestamp']) >= twenty_four_hours_ago]
 
+    if not data:
+        return data
+
     filtered_data = [data[0]]
-    for i in range(1, len(data) - 1):
+    for i in range(1, len(data)):
         if not rows_are_identical(data[i], data[i - 1], ignore_keys):
             filtered_data.append(data[i])
-    # Always add last row
-    if len(filtered_data) > 1:
-        filtered_data.append(data[-1])
+
     return filtered_data
 
 
@@ -104,11 +112,10 @@ def fetch_weather_entry_and_save():
     global weather_entries
     try:
         entry = fetch_weather_entry()
-        print(entry)
         weather_entries.append(entry)
         weather_entries = filter_identical_rows(weather_entries)
         update_csv_file(weather_entries)
-        print("save")
+        print(entry)
     except Exception as error:
         print('Failed to fetch weather data', error)
     return weather_entries
@@ -118,6 +125,12 @@ def periodic_fetch():
     while True:
         fetch_weather_entry_and_save()
         time.sleep(FETCH_INTERVAL)
+
+
+def init_collect():
+    global weather_entries
+    weather_entries = load_csv_data(CSV_FILE_PATH)
+    weather_entries = filter_identical_rows(weather_entries)
 
 
 if __name__ == '__main__':
