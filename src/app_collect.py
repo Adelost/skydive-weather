@@ -107,6 +107,18 @@ def periodic_fetch():
         time.sleep(FETCH_INTERVAL)
 
 
+if __name__ == '__main__':
+    # Load the existing CSV data into the global variable at startup
+    weather_entries = load_csv_data(CSV_FILE_PATH)
+    weather_entries = filter_identical_rows(weather_entries)
+    # Start the periodic fetch thread
+    fetch_thread = Thread(target=periodic_fetch, daemon=True)
+    fetch_thread.start()
+
+    # Run the Flask app
+    app.run(debug=True, use_reloader=False)
+
+
 def fetch_weather_entry_and_save():
     global weather_entries
     try:
@@ -118,15 +130,3 @@ def fetch_weather_entry_and_save():
     except Exception as error:
         print('Failed to fetch weather data', error)
     return weather_entries
-
-
-if __name__ == '__main__':
-    # Load the existing CSV data into the global variable at startup
-    weather_entries = load_csv_data(CSV_FILE_PATH)
-    weather_entries = filter_identical_rows(weather_entries)
-    # Start the periodic fetch thread
-    fetch_thread = Thread(target=periodic_fetch, daemon=True)
-    fetch_thread.start()
-
-    # Run the Flask app
-    app.run(debug=True, use_reloader=False)

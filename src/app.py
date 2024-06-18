@@ -9,6 +9,8 @@ import plotly.graph_objs as go
 from datetime import datetime, timedelta
 import pydeck as pdk
 
+from app_collect import fetch_weather_entry_and_save
+
 CSV_FILE_PATH = './src/weather_entries.csv'
 SHOW_HOURS = 2
 
@@ -292,6 +294,7 @@ def display_map():
     st.markdown("Spot", unsafe_allow_html=True)
     st.pydeck_chart(deck)
 
+
 def plot_wind_direction_chart(data):
     # Convert timestamp to datetime if it isn't already
     data['timestamp'] = pd.to_datetime(data['timestamp'])
@@ -322,6 +325,7 @@ def plot_wind_direction_chart(data):
     # Display the figure in a Streamlit app
     st.plotly_chart(fig)
 
+
 def main():
     set_page_config()
     display_title()
@@ -330,6 +334,7 @@ def main():
     clock_placeholder = st.empty()
 
     while True:
+        fetch_weather_entry_and_save()
         data = load_csv_data(CSV_FILE_PATH)
         data = adjust_timestamp_to_gmt2(data)
         data = convert_timestamp_to_datetime(data)
